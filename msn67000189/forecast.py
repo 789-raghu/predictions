@@ -204,7 +204,8 @@ def tune_hyperparameters(X_train, y_train, device_type):
         scoring='neg_mean_absolute_error',
         cv=pds,
         random_state=42,
-        n_jobs=-1
+        n_jobs=-1,
+        verbose=2
     )
     random_search.fit(X_train, y_train)
     best_params = random_search.best_params_
