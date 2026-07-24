@@ -57,6 +57,9 @@ FINE_TUNE_WINDOW = 30 * 24  # Fine-tune using a rolling window of 30 days (720 h
 
 OUTPUT_DIR = 'tcn_forecast_results'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+LOG_FILE_PATH = os.path.join(OUTPUT_DIR, 'training_logs.txt')
+MAE_CSV_PATH = os.path.join(OUTPUT_DIR, 'mae_errors.csv')
+MAE_REPORT_PATH = os.path.join(OUTPUT_DIR, 'mae_report.txt')
 
 print(f"Results will be saved in the directory: {OUTPUT_DIR}/")
 
@@ -284,8 +287,24 @@ def build_tcn_model(input_shape, filters, kernel_size, dilations):
     model.compile(optimizer=Adam(learning_rate=0.001), loss='mean_squared_error')
     return model
 
+class FileLoggerCallback(tf.keras.callbacks.Callback):
+    def __init__(self, filepath, log_prefix=""):
+        super().__init__()
+        self.filepath = filepath
+        self.log_prefix = log_prefix
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        log_msg = f"{self.log_prefix}Epoch {epoch+1} - " + " - ".join([f"{k}: {v:.6f}" for k, v in logs.items()])
+        with open(self.filepath, 'a') as f:
+            f.write(log_msg + "\n")
+
 # --- Main Execution Block ---
 if __name__ == "__main__":
+    # Initialize the log file by clearing it or writing a header
+    with open(LOG_FILE_PATH, 'w') as f:
+        f.write("=== TCN Forecast Training Logs ===\n")
+
     print("\n--- Starting Energy Consumption Forecasting Script ---")
 
     # --- GPU Availability and Active Testing Check ---
@@ -375,7 +394,8 @@ if __name__ == "__main__":
             epochs=INITIAL_TRAINING_EPOCHS,
             batch_size=32,
             validation_split=0.2,
-            verbose=1
+            verbose=1,
+            callbacks=[FileLoggerCallback(LOG_FILE_PATH, "Initial Training - ")]
         )
         print("Initial TCN model trained successfully.")
     else:
@@ -426,7 +446,8 @@ if __name__ == "__main__":
                 sample_weight=sample_weights_roll,
                 epochs=ROLLING_FORECAST_EPOCHS,
                 batch_size=32,
-                verbose=1
+                verbose=1,
+                callbacks=[FileLoggerCallback(LOG_FILE_PATH, f"[{current_time}] Retraining - ")]
             )
 
         # Predict the next hour
@@ -462,6 +483,29 @@ if __name__ == "__main__":
 
     print("\nDaily Mean Absolute Error (MAE) for Rolling Forecast:")
     print(daily_rolling_mae.head())
+
+    # Save the MAE errors to CSV
+    df_mae_csv = daily_rolling_mae.copy()
+    df_mae_csv['date'] = df_mae_csv['date'].astype(str)
+    # Add a row for the combined/total MAE
+    combined_row = pd.DataFrame([{'date': 'combined', 'MAE': overall_rolling_mae}])
+    df_mae_csv = pd.concat([df_mae_csv, combined_row], ignore_index=True)
+    df_mae_csv.to_csv(MAE_CSV_PATH, index=False)
+    print(f"Saved daily and combined MAE errors to CSV: {MAE_CSV_PATH}")
+
+    # Save the MAE errors to a readable report file
+    with open(MAE_REPORT_PATH, 'w') as f:
+        f.write("=== Daily and Combined Mean Absolute Error (MAE) Report ===\n\n")
+        f.write(f"Generated at: {pd.Timestamp.now()}\n\n")
+        f.write("Daily MAE:\n")
+        f.write("-----------------------\n")
+        f.write("Date       | MAE\n")
+        f.write("-----------------------\n")
+        for _, row in daily_rolling_mae.iterrows():
+            f.write(f"{row['date']} | {row['MAE']:.4f}\n")
+        f.write("-----------------------\n\n")
+        f.write(f"Total MAE (All Days Combined): {overall_rolling_mae:.4f}\n")
+    print(f"Saved MAE report to: {MAE_REPORT_PATH}")
 
     plt.figure(figsize=(18, 8))
     sns.barplot(x='date', y='MAE', data=daily_rolling_mae)
