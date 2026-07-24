@@ -195,6 +195,7 @@ def tune_hyperparameters(X_train, y_train, device_type):
     pds = PredefinedSplit(test_fold=split_index)
     
     lgbm = LGBMRegressor(random_state=42, verbose=-1, device_type=device_type)
+    n_jobs = 1 if device_type in ['gpu', 'cuda'] else -1
     random_search = RandomizedSearchCV(
         estimator=lgbm,
         param_distributions=param_dist,
@@ -202,7 +203,7 @@ def tune_hyperparameters(X_train, y_train, device_type):
         scoring='neg_mean_absolute_error',
         cv=pds,
         random_state=42,
-        n_jobs=-1,
+        n_jobs=n_jobs,
         verbose=2
     )
     random_search.fit(X_train, y_train)
