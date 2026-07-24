@@ -13,7 +13,7 @@ from sklearn.model_selection import RandomizedSearchCV, PredefinedSplit
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 # --- Configuration Parameters ---
-MSN = "67003636"
+MSN = "67003882"
 START_DATE = "2025-07-09"  # Training starts July 09, 2025
 END_DATE = "2026-07-20"
 PREDICTION_START_DATE = pd.Timestamp('2026-07-01 00:00:00')
@@ -145,6 +145,7 @@ def train_model(startDate, train_end_date_for_model_training, hour, add_quarter_
         num_leaves=63,
         max_depth=8,
         subsample=0.8,
+        bagging_freq=1,
         colsample_bytree=0.8,
         random_state=42,
         verbose=-1
@@ -185,7 +186,8 @@ def tune_hyperparameters(X_train, y_train, device_type):
         'num_leaves': [31, 63, 127],
         'max_depth': [6, 8, 10, -1],
         'subsample': [0.6, 0.8, 1.0],
-        'colsample_bytree': [0.6, 0.8, 1.0]
+        'colsample_bytree': [0.6, 0.8, 1.0],
+        'bagging_freq': [1]  # Added to allow subsample to work without warnings
     }
     
     # 85% train, 15% validation split
@@ -303,8 +305,12 @@ def train_model_with_params(df_train_raw, lags, windows, best_params, device_typ
     X_train = df_train[features]
     y_train = df_train[target]
 
+    params = best_params.copy()
+    if 'subsample' in params and params['subsample'] < 1.0:
+        params['bagging_freq'] = 1
+
     model = LGBMRegressor(
-        **best_params,
+        **params,
         random_state=42,
         device_type=device_type,
         verbose=-1
