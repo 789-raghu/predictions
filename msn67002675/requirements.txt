@@ -1,0 +1,9 @@
+requests
+numpy
+pandas
+matplotlib
+seaborn
+statsmodels
+prophet
+scikit-learn
+tensorflow[and-cuda]
