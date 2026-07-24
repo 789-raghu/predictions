@@ -156,26 +156,8 @@ def train_model(startDate, train_end_date_for_model_training, hour, add_quarter_
 
 # --- 4. GPU / CUDA Availability Check ---
 def detect_device_type():
-    device_type = 'cpu'
-    print("\n--- Checking GPU Availability for LightGBM ---")
-    try:
-        # Run a small training test with GPU support
-        X_dummy = np.random.rand(10, 2)
-        y_dummy = np.random.rand(10)
-        clf = LGBMRegressor(device_type='gpu', verbose=-1)
-        clf.fit(X_dummy, y_dummy)
-        device_type = 'gpu'
-        print("LightGBM GPU support: SUCCESS (using 'gpu')")
-    except Exception as e_gpu:
-        try:
-            clf = LGBMRegressor(device_type='cuda', verbose=-1)
-            clf.fit(X_dummy, y_dummy)
-            device_type = 'cuda'
-            print("LightGBM CUDA support: SUCCESS (using 'cuda')")
-        except Exception as e_cuda:
-            print(f"LightGBM GPU/CUDA training not available, falling back to CPU. (Errors: GPU={e_gpu}, CUDA={e_cuda})")
-            device_type = 'cpu'
-    return device_type
+    print("\n--- GPU Availability Check Bypassed (Forced CPU for Performance) ---")
+    return 'cpu'
 
 # --- 5. Hyperparameter Tuning ---
 def tune_hyperparameters(X_train, y_train, device_type):
